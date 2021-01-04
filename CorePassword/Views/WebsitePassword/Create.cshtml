@@ -1,0 +1,182 @@
+﻿@model CorePassword.Data.WebsitePassword
+
+@{
+    ViewData["Title"] = "Create";
+}
+
+<h1>Create</h1>
+
+
+<form id="PasswordGeneratorForm" method="post">
+
+    @* form bilgilerini okuma için inputtun  name alanlarından okuturuz. *@
+    <div class="form-group">
+        <label>Password Char Length</label>
+        <input class="form-control" type="number" value="12" name="PasswordLength" />
+    </div>
+
+    <div class="form-group">
+        <label>Min Numeric Char length</label>
+        <input class="form-control" type="number" value="3" name="MinNumericCharLength" />
+    </div>
+
+    <div class="form-group">
+        <label>Min LowerCase Char Lenght</label>
+        <input class="form-control" type="number" value="3" name="MinLowerCaseCharLength" />
+    </div>
+
+    <div class="form-group">
+        <label> Min UpperCase Char Length</label>
+        <input class="form-control" type="number" value="3" name="MinUpperCaseCharLength" />
+    </div>
+
+    <div class="form-group">
+        <label> Min Special Char Length</label>
+        <input class="form-control" type="number" value="3" name="MinSpecialCharLength" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Generate Password</button>
+
+</form>
+
+<div class="text-info">
+    @ViewBag.Message
+</div>
+
+<form method="post">
+
+    <div class="form-group">
+        <label for="email">Şifre:</label>
+
+        <div class="input-group">
+            <button onclick="ShowPassword(event)" class="btn btn-warning"><i class="fa fa-eye"></i></button>
+        </div>
+        @* Readonly ile inputa müdahaleyi öledik. *@
+        <input readonly type="password" asp-for="Password" class="form-control" id="passwordInput" />
+    </div>
+
+    <div class="form-group">
+        <label for="pwd"> UserName</label>
+        <input type="text" class="form-control" asp-for="UserName" />
+    </div>
+
+    <div class="form-group">
+        <label for="pwd"> Web Site:</label>
+        <input type="text" class="form-control" asp-for="Website" />
+    </div>
+
+    <div class="form-group">
+        <label for="pwd">Web Site Url:</label>
+        <input type="text" class="form-control" asp-for="WebsiteUrl" />
+    </div>
+
+    <button type="submit" class="btn btn-info"> Kaydet</button>
+</form>
+
+@section Scripts{
+
+    <script>
+        //Formun verilerini alıp json objesine dönüştürmek için bu functionı kullandık.
+        $.fn.serializeObject = function () {
+            var o = {};
+            var a = this.serializeArray();
+            $.each(a, function () {
+                if (o[this.name]) {
+                    if (!o[this.name].push) {
+                        o[this.name] = [o[this.name]];
+                    }
+                    o[this.name].push(this.value || '');
+                } else {
+                    o[this.name] = this.value || '';
+                }
+            });
+            return o;
+        };
+
+        $('#PasswordGeneratorForm').on('submit',
+            (event) => {
+                event.preventDefault(); //Form post olurken javascript veya ajax yarıda kalmaması için bu methodu kullanırız.
+
+                //Serialization işlemi bir nesneyi depolamak veya serileştirmek amacıyla istenen formata dönüştürme işlemidir.
+                var formData = $('#PasswordGeneratorForm').serializeObject();
+
+                var validationMessage = PasswordSecurityValidation(formData);
+
+                var messageBoxResult = confirm(`${validationMessage}.İşleme devam etmek istediginize emin misiniz ?`);
+
+                // şifre oluşturma kabul edildiyse şifre oluştur.
+                if (messageBoxResult) {
+
+                    $.ajax({
+                        url: '/WebSitePassword/GeneratePassword',
+                        type: 'POST',
+                        data: formData,
+                        success: (response) => {
+                            $('#passwordInput').val(response);
+                        }
+                    });
+                }
+
+
+            });
+
+        ShowPassword = (event) => {
+            console.log("event", event);
+
+            event.preventDefault();
+
+            var type = $('#passwordInput').attr('type'); //type okuduk.
+
+            console.log('type', type);
+
+            //=== hem type hem deger eşit oldugunda kullanırız.
+            if (type === 'password') { //
+                $('#passwordInput').prop('type', 'text'); // type password ise type nı text yap.
+            } else {
+                $('#passwordInput').prop('type', 'password'); // if in else sinde type text oldugu için type password yap dedik.
+            }
+        }
+
+        PasswordSecurityValidation = (formData) => {
+
+            var message = "";
+
+            var CombinationCount = 0;
+
+            if (formData.MinLowerCaseCharLength > 0) {
+                CombinationCount++;
+            }
+
+            if (formData.MinUpperCaseCharLength > 0) {
+                CombinationCount++;
+            }
+
+            if (formData.MinNumericCharLength > 0) {
+                CombinationCount++;
+            }
+
+            if (formData.MinSpecialCharLength > 0) {
+                CombinationCount++;
+            }
+
+
+
+            if ((CombinationCount == 4 || CombinationCount == 3) && formData.PasswordLength >= 12) {
+
+                message = "Güçlü bir parola seçtiniz";
+            }
+            else if ((CombinationCount == 3 || CombinationCount == 4 || CombinationCount == 2) && formData.PasswordLength >= 8) {
+                message = "Orta seviye bir parola seçtiniz"
+            }
+            else if (CombinationCount < 2 || formData.PasswordLength < 8) {
+                message = "Zayıf bir parola seçtiniz.Lütfen Min 8 karakter ve en az 1 buyuk 1 kucuk ve 1 sayısal değer giriniz"
+            }
+
+            return message;
+
+        }
+
+
+    </script>
+
+}

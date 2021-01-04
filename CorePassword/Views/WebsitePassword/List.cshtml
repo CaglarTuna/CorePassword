@@ -1,0 +1,240 @@
+﻿@model List<CorePassword.Data.WebsitePassword>
+@{
+    ViewData["Title"] = "List";
+}
+
+<h1>List</h1>
+
+<div>
+    <input class="form-control" onkeyup="Filter(event.target.value)" placeholder="Tabloda ara"/>
+</div>
+<br/>
+
+<div class="dropdown show">
+    <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="False">Sıralama</a>
+
+    <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+        <a class="dropdown-item" href="/WebsitePassword/List?orderBy=asc">Kopyalama sayısına göre artan</a>
+        <a class="dropdown-item" href="/WebsitePassword/List?orderBy=desc">Kopyalama sayısına göre azalan</a>
+    </div>
+
+</div>
+<br/>
+
+<table class="table table-bordered" id="PasswordTable">
+    <tr>
+        <th>Kopyalama Sayısı</th>
+        <th>WebSite</th>
+        <th>Username</th>
+        <th>Password</th>
+        <th>Actions</th>
+    </tr>
+        
+    @foreach (var item in Model)
+    {
+        <tr id="removeItem_@item.Id">
+            <td><span>@item.CopyCount kez kopyalandı</span></td>
+            <td><a href="" target="_blank">@item.Website</a></td>
+            <td>
+                <div class="input-group">
+                    <input class="form-control" id="usernameText_@item.Id" value="@item.UserName"/>
+                    <span class="input-group-append">
+                        <button onclick="ChangeUserName('@item.Id')" class="btn btn-info"><i class="fa fa-edit"></i></button>&nbsp;
+                        <button onclick="UserCopy('@item.Id')" class="btn btn-warning"><i class="fa fa-copy"></i></button>
+                    </span>
+                </div>
+            </td>
+            <td>
+                <div class="input-group">
+                    <input class="form-control" readonly id="passwordText_@item.Id" value="@item.Password"/>
+                    <span class="input-group-append">
+                        <button onclick="PasswordCopy('@item.Id')" class="btn btn-warning"><i class="fa fa-copy"></i></button>
+                    </span>
+                </div>
+            </td>
+            <td>
+                <button data-toggle="modal" data-target="#passwordHistoryModal_@item.Id" class="btn btn-primary"><i class="fa fa-history" aria-hidden="true"></i></button>
+                <button onclick="GenerateNewPassword('@item.Id')" class="btn btn-primary"><i class="fa fa-refresh" aria-hidden="true"></i></button>
+                <button onclick="Remove('@item.Id')" class=" btn btn-danger"><i class="fa fa-remove" aria-hidden="true"></i></button>
+            </td>
+        </tr>
+    }
+</table>
+
+@foreach (var item in Model)
+{
+    <div id="passwordHistoryModal_@item.Id" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Password History</h4>
+                </div>
+                <div class="modal-body">
+                    <ul class="list-group">
+                        @foreach (var historyItem in item.PasswordHistories.OrderByDescending(x=>x.ExpiredDate))
+                        {
+                            <li class="list-group-item">
+                                <span>Eski Parola: <b>@historyItem.Password</b></span> &nbsp; &nbsp;
+                                <span>Parola Değişme Tarihi:</span> &nbsp; &nbsp;
+                                <span data-toggle="tooltip" title="Expire Date: @historyItem.ExpiredDate.ToShortDateString()"><i class="fa fa-info-circle"></i></span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-dismiss="modal">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts
+{
+    <script>
+        UserCopy = (id) => {
+            var copyText = document.getElementById("usernameText_" + id);
+            copyText.select();
+            document.execCommand("copy");
+            IncreaseCopyCount(id);
+            alert("Kopyalanan text: " + copyText.value);
+        }
+
+        PasswordCopy = (id) => {
+            var copyText = document.getElementById("passwordText_" + id);
+            copyText.select();
+            document.execCommand("copy");
+            IncreaseCopyCount(id);
+            alert("Kopyalanan şifre: " + copyText.value);
+        }
+
+        IncreaseCopyCount = (id) => {
+            $.ajax({
+                url: '/WebsitePassword/IncreaseCopyCount/',
+                type: 'POST',
+                data: JSON.stringify(id),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (response) {
+                    window.location.href = '/WebsitePassword/List';
+                },
+                error: (err) => {
+                    console.log('err', err);
+                }
+            });
+        }
+
+        ChangeUserName = (id) => {
+            var confirmResult = confirm("UserName Güncellemek İstediğinizden Emin misiniz?");
+            var data = {
+                Id: id,
+                UserName: $('#usernameText_' + id).val()
+            }
+
+            if (confirmResult) {
+                $.ajax({
+                    url: '/WebsitePassword/ChangeUserName/',
+                    type: 'POST',
+                    data: JSON.stringify(data),
+                    contentType: "application/json; charset=utf-8",
+                    dataType: "json",
+                    success: function (response) {
+                        alert(response);
+                    },
+                    error: (err) => {
+                        console.log('err', err);
+                    }
+                });
+            }
+        }
+
+        GenerateNewPassword = (id) => {
+            $.ajax({
+                url: 'WebsitePassword/SaveNewPassword/',
+                type: 'POST',
+                data: JSON.stringify(id),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (response) {
+                    alert("Guncellendi");
+                    $('#passwordText_' + id).val(response);
+                    window.location.href = '/WebsitePassword/List';
+                },
+                error: (err) => {
+                    console.log("err", err);
+                }
+            });
+        }
+
+        Remove = (id) => {
+            var confirmResult = confirm("Silelim mi?");
+
+            if (confirmResult) {
+                $.ajax({
+                    url: '/WebsitePassword/Remove/',
+                    type: 'POST',
+                    data: JSON.stringify(id),
+                    contentType: "application/json; charset=utf-8",
+                    dataType: "json",
+                    success: function (response) {
+                        alert("Silindi");
+                        $('#removeItem_' + id).fadeOut();
+                    },
+                    error: (err) => {
+                        console.log("err", err);
+                    }
+                });
+            }
+        }
+
+        Filter = (filterText) => {
+            console.log('FilterText', filterText);
+
+            var filter, table, tr;
+
+            filter = filterText.toUpperCase();
+
+            table = document.getElementById("PasswordTable");
+
+            tr = table.getElementsByTagName("tr");
+
+            console.log("table,tr", table, tr);
+
+            for (var i = 0; i < tr.length; i++) {
+
+                var tdWebSite = tr[i].getElementsByTagName("td")[1];
+                var tdUserName = tr[i].getElementsByTagName("td")[2];
+                var tdPassword = tr[i].getElementsByTagName("td")[3];
+
+                if (tdWebSite || tdPassword || tdUserName) {
+
+                    var webSiteElement = tdWebSite.getElementsByTagName("a")[0];
+
+                    var userNameElement = tdUserName.getElementsByTagName("input")[0];
+
+                    var passwordElement = tdPassword.getElementsByTagName("input")[0];
+
+                    if (webSiteElement || userNameElement || passwordElement) {
+
+                        var websiteValue = webSiteElement.textContent || webSiteElement.innerHTML;
+
+                        var passwordValue = passwordElement.value;
+
+                        var usernameValue = userNameElement.value;
+
+                        if (websiteValue.toUpperCase().indexOf(filter) > -1 || passwordValue.toUpperCase().indexOf(filter) > -1 || usernameValue.toUpperCase().indexOf(filter) > -1) {
+
+                            tr[i].style.display = "";
+                        } else {
+                            tr[i].style.display = "none";
+                        }
+                    }
+                }
+            }
+        }
+
+        $(document).ready(function () {
+            $('[data-toggle="tooltip"]').tooltip();
+        });
+    </script>
+}
